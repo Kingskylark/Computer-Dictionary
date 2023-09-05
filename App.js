@@ -1,22 +1,29 @@
+
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import {
-  Text, View, TextInput,
+   Text,
+  View,
+  TextInput,
   TouchableOpacity,
-  Modal, Button, StatusBar, FlatList
+  Modal,
+  Button,
+  StatusBar,
+  FlatList,
+  StyleSheet,
+  Animated,
 } from 'react-native';
 import { EvilIcons } from '@expo/vector-icons';
 import * as SQLite from 'expo-sqlite';
-import computerTerms from './assets/db/localDB';
-import styles  from './assets/styles/style';
-
-
-const db = SQLite.openDatabase('dictionary.db');
+import computerTerms from './ComputerTerms';
+import { styles } from './style'; 
+import { BackHandler } from 'react-native';
 
 const WordItem = ({ item, onPress }) => {
   return (
-    <TouchableOpacity onPress={() => onPress(item)}>
+    <TouchableOpacity onPress={() => onPress(item)} style={styles.wordItem}>
       <Text style={styles.word}>{item.word}</Text>
+      <EvilIcons name="arrow-right" size={24} color="black" />
     </TouchableOpacity>
   );
 };
@@ -27,9 +34,9 @@ const App = () => {
   const [bookmarksVisible, setBookmarksVisible] = useState(false);
   const [bookmarks, setBookmarks] = useState([]);
   const [dictionaryData, setDictionaryData] = useState([]);
-  
+
   const createAndInsertComputerTerms = () => {
-    db.transaction(tx => {
+    db.transaction((tx) => {
       // Create the 'Computer Terms' table if it doesn't exist
       tx.executeSql(
         `CREATE TABLE IF NOT EXISTS dictionary (
@@ -42,58 +49,100 @@ const App = () => {
           sentence TEXT
         );`
       );
-  
-               
-      // Execute INSERT statements for each item in computerTerms within the transaction
-      Object.values(computerTerms).forEach(item => {
-        const values = [item.word, item.lexicalCategory, item.definition, item.pronunciation, item.synonym, item.antonym, item.sentence];
-
-        const insertStatement = `INSERT INTO dictionary ('word', 'lexicalCategory', 'definition', 'pronunciation', 'synonym', 'antonym', 'sentence') VALUES ('${item.word}', '${item.lexicalCategory}', "${item.definition}", "${item.pronunciation}", '${item.synonym}', '${item.antonym}', "${item.sentence}")`;
-
-  // console.log(insertStatement);
-
-  tx.executeSql(
-    insertStatement,
-    (_, result) => {
-      // Success callback
-      console.log('Inserted item:', item.word, result);
-    },
-    (_, error) => {
-      // Error callback
-      console.log('Error inserting item:', item.word, 'Error:', error);
-    }
-  );
-});
-tx.executeSql(
-  "SELECT * FROM 'dictionary' WHERE word LIKE ?", 
-  [`%${searchText.toLowerCase()}%`],
-  (_, rows ) => {
-    const data = rows;
-    console.log('Fetched data:', data);
-    setDictionaryData(data);
-  },
-  (_, error) => console.error('Error fetching data:', error)
-);
-    }, (error) => {
-      // Transaction error callback
-      console.log('Transaction error:', error);
-    }, 
-    );
+      [],
+        (_, result) => {
+          console.log('Table created successfully:', result);
+        },
+        (_, error) => {
+          console.error('Error creating table:', error);
+        };
+    });
   };
- 
-  
+
+  const insertData = () => {
+    // Now you can use the imported computerTerms for insertion
+    db.transaction((tx) => {
+      computerTerms.forEach(
+        (term) => {
+          const {
+            Word,
+            LexicalCategory,
+            Definition,
+            Pronunciation,
+            Synonym,
+            Antonym,
+            Sentence,
+          } = term;
+
+          tx.executeSql(
+            'INSERT OR IGNORE INTO dictionary (word, lexicalCategory, definition, pronunciation, synonym, antonym, sentence) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [
+              Word,
+              LexicalCategory,
+              Definition,
+              Pronunciation,
+              Synonym,
+              Antonym,
+              Sentence,
+            ],
+            (_, result) => {
+              console.log('Inserted item:', Word, result);
+            },
+            (_, error) => {
+              console.error('Error inserting item:', Word, 'Error:', error);
+            }
+          );
+          tx.executeSql(
+            'SELECT * FROM dictionary WHERE word LIKE ?',
+            [`%${searchText.toLowerCase()}%`],
+            (_, { rows }) => {
+              const data = rows._array;
+              console.log(data);
+              setDictionaryData(data);
+            },
+            (_, error) => console.error('Error fetching data:', error)
+          );
+        },
+        (error) => {
+          // Transaction error callback
+          console.log('Transaction error:', error);
+        }
+      );
+    });
+  };
+
+  const handleBackButtonPress = () => {
+    closeModal();
+    return true; // Prevent default behavior (exiting the app)
+  };
+
+  const db = SQLite.openDatabase('dictionary.db');
   useEffect(() => {
-      createAndInsertComputerTerms();
-      }, []);
+    createAndInsertComputerTerms();
+    insertData();
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      handleBackButtonPress
+    );
+
+    return () => {
+      // Remove the back button listener when the component unmounts
+      backHandler.remove();
+    };
+  }, []);
 
   const filterData = () => {
     if (searchText.trim() === '') {
       return [];
     }
-    return dictionaryData.filter(item => item.word.toLowerCase().includes(searchText.toLowerCase()));
+    return dictionaryData.filter((item) =>
+      item.word.toLowerCase().includes(searchText.toLowerCase())
+    );
   };
 
-  const renderItem = ({ item }) => <WordItem item={item} onPress={showWordDetails} />;
+  const renderItem = ({ item }) => (
+    <WordItem item={item} onPress={showWordDetails} />
+  );
 
   const showWordDetails = (word) => {
     setSelectedWord(word);
@@ -105,7 +154,7 @@ tx.executeSql(
 
   const toggleBookmark = (word) => {
     if (bookmarks.includes(word)) {
-      const updatedBookmarks = bookmarks.filter(item => item !== word);
+      const updatedBookmarks = bookmarks.filter((item) => item !== word);
       setBookmarks(updatedBookmarks);
     } else {
       setBookmarks([...bookmarks, word]);
@@ -113,26 +162,35 @@ tx.executeSql(
   };
 
   const isWordBookmarked = (word) => bookmarks.includes(word);
-  const renderBookmarkedWord = ({ item }) => (
-    <TouchableOpacity onPress={() => showWordDetails(item)}>
-      <Text style={styles.bookmarkedWord}>{item}</Text>
-    </TouchableOpacity>
-  );
+
+  const renderBookmarkedWord = ({ item }) => {
+    const foundWord = dictionaryData.find((word) => word.word === item);
+
+    if (foundWord) {
+      return (
+        <TouchableOpacity onPress={() => showWordDetails(foundWord)}>
+          <Text style={styles.bookmarkedWord}>{foundWord.word}</Text>
+        </TouchableOpacity>
+      );
+    }
+
+    return null; // Handle the case when the word is not found
+  };
 
   return (
     <View style={styles.container}>
       <StatusBar animated={true} backgroundColor="#0047ab" barStyle="light" />
-      <View style={{ backgroundColor: "#0073cf", padding: 10 }}>
+      <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
           placeholder="Search..."
-          onChangeText={text => setSearchText(text)}
+          onChangeText={(text) => setSearchText(text)}
           value={searchText}
         />
       </View>
       {searchText.trim() !== '' && (
-        <FlatList
-          style={{ padding: 16 }}
+        <Animated.FlatList
+          style={styles.list}
           data={filterData()}
           renderItem={renderItem}
           keyExtractor={(item, index) => index.toString()}
@@ -140,46 +198,77 @@ tx.executeSql(
         />
       )}
 
-      <Modal visible={selectedWord !== null} animationType="slide">
-        <View style={styles.modalContainer}>
-          <Text style={styles.modalTitle}>{selectedWord?.word}</Text>
-          <Text style={styles.itemContent}>LexicalCategory: {selectedWord?.lexicalCategory}</Text>
-          <Text style={styles.itemContent}>Definition: {selectedWord?.definition}</Text>
-          <Text style={styles.itemContent}>Pronunciation: {selectedWord?.pronunciation}</Text>
-          <Text style={styles.itemContent}>Synonym: {selectedWord?.synonym || 'N/A'}</Text>
-          <Text style={styles.itemContent}>Antonym: {selectedWord?.antonym || 'N/A'}</Text>
-          <Text style={styles.itemContent}>Sentence: {selectedWord?.sentence}</Text>
-          <View style={styles.fixToText}>
-            <Button
-              title={isWordBookmarked(selectedWord?.word) ? 'Remove Bookmark' : 'Bookmark'}
-              onPress={() => toggleBookmark(selectedWord?.word)}
-              color="blue"
-            />
-            <Button title="Go Back" onPress={closeModal} style={{ width: 50 }} color="red" />
-          </View>
-        </View>
-      </Modal>
+    <Modal visible={selectedWord !== null} animationType="slide">
+  <View style={styles.modalContainer}>
+    <View style={styles.modalHeader}>
+      <Text style={styles.modalTitle}>{selectedWord?.word}</Text>
+      <Text style={styles.lexicalCategory}>
+        {selectedWord?.lexicalCategory}
+      </Text>
+    </View>
+    <View style={styles.modalBody}>
+      <Text style={styles.definition}>
+        Definition: {selectedWord?.definition}
+      </Text>
+      <Text style={styles.pronunciation}>
+        Pronunciation: {selectedWord?.pronunciation}
+      </Text>
+      <Text style={styles.synonym}>
+        Synonym: {selectedWord?.synonym || 'N/A'}
+      </Text>
+      <Text style={styles.antonym}>
+        Antonym: {selectedWord?.antonym || 'N/A'}
+      </Text>
+      <Text style={styles.sentence}>Sentence: {selectedWord?.sentence}</Text>
+    </View>
+    <View style={styles.modalFooter}>
+      <TouchableOpacity
+        style={[
+          styles.bookmarkButton,
+          {
+            backgroundColor: isWordBookmarked(selectedWord?.word)
+              ? 'red'
+              : 'blue',
+          },
+        ]}
+        onPress={() => toggleBookmark(selectedWord?.word)}
+      >
+        <Text style={styles.bookmarkButtonText}>
+          {isWordBookmarked(selectedWord?.word)
+            ? 'Remove Bookmark'
+            : 'Bookmark'}
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.goBackButton}
+        onPress={closeModal}
+      >
+        <Text style={styles.goBackButtonText}>Go Back</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
       <TouchableOpacity
         style={styles.bookmarkIconContainer}
-        onPress={() => setBookmarksVisible(!bookmarksVisible)}
-      >
+        onPress={() => setBookmarksVisible(!bookmarksVisible)}>
         <EvilIcons name="star" size={40} color="black" />
       </TouchableOpacity>
 
       {bookmarksVisible && (
         <View style={styles.bookmarkedWordsContainer}>
-          <Text style={styles.bookmarksTitle}>Bookmarked Words:</Text>
-          <FlatList
-            data={bookmarks}
-            renderItem={renderBookmarkedWord}
-            keyExtractor={(item, index) => index.toString()}
-          />
-        </View>
+  <Text style={styles.bookmarksTitle}>Bookmarked Words:</Text>
+  <FlatList
+    data={bookmarks}
+    renderItem={renderBookmarkedWord}
+    keyExtractor={(item, index) => index.toString()}
+    style={styles.bookmarkedWordItem}
+  />
+</View>
+
       )}
     </View>
   );
 };
-
-
 
 export default App;
