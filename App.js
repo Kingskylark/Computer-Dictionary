@@ -1,32 +1,32 @@
 // Import necessary modules from React and React Native
-import * as React from 'react';
-import { useState, useEffect } from 'react';
+import * as React from "react";
+import { useState, useEffect } from "react";
 import {
-   Text,
-   View,
-   TextInput,
-   TouchableOpacity,
-   Modal,
-   Button,
-   StatusBar,
-   FlatList,
-   Animated,
-} from 'react-native';
+  Text,
+  View,
+  TextInput,
+  TouchableOpacity,
+  Modal,
+  Button,
+  StatusBar,
+  FlatList,
+  Animated,
+} from "react-native";
 
 // Import an icon component from the Expo vector icons library
-import { EvilIcons } from '@expo/vector-icons';
+import { EvilIcons } from "@expo/vector-icons";
 
 // Import the SQLite library
-import * as SQLite from 'expo-sqlite';
+import * as SQLite from "expo-sqlite";
 
 // Import a predefined list of computer terms
-import computerTerms from './ComputerTerms';
+import computerTerms from "./ComputerTerms";
 
 // Import custom styles
-import { styles } from './style';
+import { styles } from "./style";
 
 // Import BackHandler from React Native
-import { BackHandler } from 'react-native';
+import { BackHandler } from "react-native";
 
 // Define a functional component called WordItem to render individual dictionary words
 const WordItem = ({ item, onPress }) => {
@@ -41,7 +41,7 @@ const WordItem = ({ item, onPress }) => {
 // Define the main functional component of the app
 const App = () => {
   // State variables to manage various aspects of the app
-  const [searchText, setSearchText] = useState('');
+  const [searchText, setSearchText] = useState("");
   const [selectedWord, setSelectedWord] = useState(null);
   const [bookmarksVisible, setBookmarksVisible] = useState(false);
   const [bookmarks, setBookmarks] = useState([]);
@@ -64,10 +64,10 @@ const App = () => {
       );
       [],
         (_, result) => {
-          console.log('Table created successfully:', result);
+          console.log("Table created successfully:", result);
         },
         (_, error) => {
-          console.error('Error creating table:', error);
+          console.error("Error creating table:", error);
         };
     });
   };
@@ -89,7 +89,7 @@ const App = () => {
           } = term;
 
           tx.executeSql(
-            'INSERT OR IGNORE INTO dictionary (word, lexicalCategory, definition, pronunciation, synonym, antonym, sentence) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            "INSERT OR IGNORE INTO dictionary (word, lexicalCategory, definition, pronunciation, synonym, antonym, sentence) VALUES (?, ?, ?, ?, ?, ?, ?)",
             [
               Word,
               LexicalCategory,
@@ -100,26 +100,26 @@ const App = () => {
               Sentence,
             ],
             (_, result) => {
-              console.log('Inserted item:', Word, result);
+              console.log("Inserted item:", Word, result);
             },
             (_, error) => {
-              console.error('Error inserting item:', Word, 'Error:', error);
+              console.error("Error inserting item:", Word, "Error:", error);
             }
           );
           tx.executeSql(
-            'SELECT * FROM dictionary WHERE word LIKE ?',
+            "SELECT * FROM dictionary WHERE word LIKE ?",
             [`%${searchText.toLowerCase()}%`],
             (_, { rows }) => {
               const data = rows._array;
               console.log(data);
               setDictionaryData(data);
             },
-            (_, error) => console.error('Error fetching data:', error)
+            (_, error) => console.error("Error fetching data:", error)
           );
         },
         (error) => {
           // Transaction error callback
-          console.log('Transaction error:', error);
+          console.log("Transaction error:", error);
         }
       );
     });
@@ -132,7 +132,7 @@ const App = () => {
   };
 
   // Open the SQLite database
-  const db = SQLite.openDatabase('dictionary.db');
+  const db = SQLite.openDatabase("dictionary.db");
 
   useEffect(() => {
     // Call functions for database setup and data insertion when the component mounts
@@ -141,7 +141,7 @@ const App = () => {
 
     // Add a hardware back button listener
     const backHandler = BackHandler.addEventListener(
-      'hardwareBackPress',
+      "hardwareBackPress",
       handleBackButtonPress
     );
 
@@ -153,14 +153,14 @@ const App = () => {
 
   // Function to filter dictionary data based on the search text
   const filterData = () => {
-    if (searchText.trim() === '') {
-      return [];
+    if (searchText.trim() === "") {
+      return dictionaryData; // Return all data if search text is empty
     }
     return dictionaryData.filter((item) =>
       item.word.toLowerCase().includes(searchText.toLowerCase())
     );
   };
-
+  
   // Function to render each item in the FlatList
   const renderItem = ({ item }) => (
     <WordItem item={item} onPress={showWordDetails} />
@@ -190,9 +190,9 @@ const App = () => {
   const isWordBookmarked = (word) => bookmarks.includes(word);
 
   // Function to render a bookmarked word
-  const renderBookmarkedWord = ({ item }) => {
+    const renderBookmarkedWord = ({ item }) => {
     const foundWord = dictionaryData.find((word) => word.word === item);
-
+  
     if (foundWord) {
       return (
         <TouchableOpacity onPress={() => showWordDetails(foundWord)}>
@@ -200,10 +200,14 @@ const App = () => {
         </TouchableOpacity>
       );
     }
-
-    return null; // Handle the case when the word is not found
+  
+    return (
+      <Text style={styles.bookmarkedWord}>
+        Error! Word not found: {item}
+      </Text>
+    );
   };
-
+  
   // JSX code for rendering the main UI of the app
   return (
     <View style={styles.container}>
@@ -216,13 +220,13 @@ const App = () => {
           value={searchText}
         />
       </View>
-      {searchText.trim() !== '' && (
+      {searchText.trim() !== "" && (
         <Animated.FlatList
           style={styles.list}
           data={filterData()}
           renderItem={renderItem}
           keyExtractor={(item, index) => index.toString()}
-          ItemSeparatorComponent={() => <View style={styles.divider} />}
+          ItemSeparatorComponent={() => <View stywle={styles.divider} />}
         />
       )}
 
@@ -242,12 +246,14 @@ const App = () => {
               Pronunciation: {selectedWord?.pronunciation}
             </Text>
             <Text style={styles.synonym}>
-              Synonym: {selectedWord?.synonym || 'N/A'}
+              Synonym: {selectedWord?.synonym || "N/A"}
             </Text>
             <Text style={styles.antonym}>
-              Antonym: {selectedWord?.antonym || 'N/A'}
+              Antonym: {selectedWord?.antonym || "N/A"}
             </Text>
-            <Text style={styles.sentence}>Sentence: {selectedWord?.sentence}</Text>
+            <Text style={styles.sentence}>
+              Sentence: {selectedWord?.sentence}
+            </Text>
           </View>
           <View style={styles.modalFooter}>
             <TouchableOpacity
@@ -255,22 +261,19 @@ const App = () => {
                 styles.bookmarkButton,
                 {
                   backgroundColor: isWordBookmarked(selectedWord?.word)
-                    ? 'red'
-                    : 'blue',
+                    ? "red"
+                    : "blue",
                 },
               ]}
               onPress={() => toggleBookmark(selectedWord?.word)}
             >
               <Text style={styles.bookmarkButtonText}>
                 {isWordBookmarked(selectedWord?.word)
-                  ? 'Remove Bookmark'
-                  : 'Bookmark'}
+                  ? "Remove Bookmark"
+                  : "Bookmark"}
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.goBackButton}
-              onPress={closeModal}
-            >
+            <TouchableOpacity style={styles.goBackButton} onPress={closeModal}>
               <Text style={styles.goBackButtonText}>Go Back</Text>
             </TouchableOpacity>
           </View>
@@ -279,7 +282,8 @@ const App = () => {
 
       <TouchableOpacity
         style={styles.bookmarkIconContainer}
-        onPress={() => setBookmarksVisible(!bookmarksVisible)}>
+        onPress={() => setBookmarksVisible(!bookmarksVisible)}
+      >
         <EvilIcons name="star" size={40} color="black" />
       </TouchableOpacity>
 
