@@ -1,4 +1,3 @@
-// Import necessary modules from React and React Native
 import * as React from "react";
 import { useState, useEffect } from "react";
 import {
@@ -13,72 +12,73 @@ import {
   Animated,
 } from "react-native";
 
-// Import an icon component from the Expo vector icons library
 import { EvilIcons } from "@expo/vector-icons";
 
-// Import the SQLite library
 import * as SQLite from "expo-sqlite";
 
-// Import a predefined list of computer terms
-import computerTerms from "./ComputerTerms";
+import dictionary from "./ComputerTerms";
 
-// Import custom styles
 import { styles } from "./style";
 
-// Import BackHandler from React Native
 import { BackHandler } from "react-native";
 
-// Define a functional component called WordItem to render individual dictionary words
-const WordItem = ({ item, onPress }) => {
+const WordItem = React.memo(({ item, onPress }) => {
   return (
     <TouchableOpacity onPress={() => onPress(item)} style={styles.wordItem}>
       <Text style={styles.word}>{item.word}</Text>
       <EvilIcons name="arrow-right" size={24} color="black" />
     </TouchableOpacity>
   );
-};
+});
 
-// Define the main functional component of the app
 const App = () => {
-  // State variables to manage various aspects of the app
   const [searchText, setSearchText] = useState("");
   const [selectedWord, setSelectedWord] = useState(null);
-  const [bookmarksVisible, setBookmarksVisible] = useState(false);
+  const [bookmarkedWordsVisible, setBookmarkedWordsVisible] = useState(false);
   const [bookmarks, setBookmarks] = useState([]);
   const [dictionaryData, setDictionaryData] = useState([]);
 
-  // Function to create the SQLite database and insert computer terms into it
-  const createAndInsertComputerTerms = () => {
+  const db = SQLite.openDatabase("dictionary.db");
+
+  const createComputerTerms = () => {
     db.transaction((tx) => {
-      // Create the 'dictionary' table if it doesn't exist
       tx.executeSql(
         `CREATE TABLE IF NOT EXISTS dictionary (
-          word TEXT PRIMARY KEY,
-          lexicalCategory TEXT,
-          definition TEXT,
-          pronunciation TEXT,
-          synonym TEXT,
-          antonym TEXT,
-          sentence TEXT
-        );`
-      );
-      [],
+              word TEXT PRIMARY KEY,
+              lexicalCategory TEXT,
+              definition TEXT,
+              pronunciation TEXT,
+              synonym TEXT,
+              antonym TEXT,
+              sentence TEXT
+            );`,
+        [],
         (_, result) => {
-          console.log("Table created successfully:", result);
+          // console.log("Table created successfully:", result);
         },
         (_, error) => {
           console.error("Error creating table:", error);
-        };
+        }
+      );
     });
   };
 
-  // Function to insert data into the 'dictionary' table
   const insertData = () => {
-    // Now you can use the imported computerTerms for insertion
     db.transaction((tx) => {
-      computerTerms.forEach(
-        (term) => {
-          const {
+      dictionary.forEach((item) => {
+        const {
+          Word,
+          LexicalCategory,
+          Definition,
+          Pronunciation,
+          Synonym,
+          Antonym,
+          Sentence,
+        } = item;
+
+        tx.executeSql(
+          "INSERT OR IGNORE INTO dictionary (word, lexicalCategory, definition, pronunciation, synonym, antonym, sentence) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          [
             Word,
             LexicalCategory,
             Definition,
@@ -86,97 +86,92 @@ const App = () => {
             Synonym,
             Antonym,
             Sentence,
-          } = term;
+          ],
+          (_, result) => {
+            // console.log("Inserted item:", Word, result);
+          },
+          (_, error) => {
+            console.error("Error inserting item:", Word, "Error:", error);
+          }
+        );
+      });
 
-          tx.executeSql(
-            "INSERT OR IGNORE INTO dictionary (word, lexicalCategory, definition, pronunciation, synonym, antonym, sentence) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            [
-              Word,
-              LexicalCategory,
-              Definition,
-              Pronunciation,
-              Synonym,
-              Antonym,
-              Sentence,
-            ],
-            (_, result) => {
-              console.log("Inserted item:", Word, result);
-            },
-            (_, error) => {
-              console.error("Error inserting item:", Word, "Error:", error);
-            }
-          );
-          tx.executeSql(
-            "SELECT * FROM dictionary WHERE word LIKE ?",
-            [`%${searchText.toLowerCase()}%`],
-            (_, { rows }) => {
-              const data = rows._array;
-              console.log(data);
-              setDictionaryData(data);
-            },
-            (_, error) => console.error("Error fetching data:", error)
-          );
+      tx.executeSql(
+        "SELECT * FROM dictionary",
+        [],
+        (_, { rows }) => {
+          const data = rows._array;
+          // console.log(data);
+          setDictionaryData(data);
         },
-        (error) => {
-          // Transaction error callback
-          console.log("Transaction error:", error);
-        }
+        (_, error) => console.error("Error fetching data:", error)
       );
     });
   };
 
-  // Function to handle the hardware back button press
   const handleBackButtonPress = () => {
-    closeModal();
-    return true; // Prevent default behavior (exiting the app)
+    if (selectedWord !== null) {
+      closeModal();
+      return true;
+    } else if (bookmarkedWordsVisible) {
+      closeBookmarkedWordsModal();
+      return true;
+    }
+    return false;
   };
 
-  // Open the SQLite database
-  const db = SQLite.openDatabase("dictionary.db");
-
   useEffect(() => {
-    // Call functions for database setup and data insertion when the component mounts
-    createAndInsertComputerTerms();
+    createComputerTerms();
     insertData();
 
-    // Add a hardware back button listener
     const backHandler = BackHandler.addEventListener(
       "hardwareBackPress",
       handleBackButtonPress
     );
 
-    // Remove the back button listener when the component unmounts
     return () => {
       backHandler.remove();
     };
-  }, []);
+  }, [selectedWord, bookmarkedWordsVisible]);
 
-  // Function to filter dictionary data based on the search text
   const filterData = () => {
     if (searchText.trim() === "") {
-      return dictionaryData; // Return all data if search text is empty
+      return dictionary;
     }
-    return dictionaryData.filter((item) =>
+
+    const filteredData = dictionaryData.filter((item) =>
       item.word.toLowerCase().includes(searchText.toLowerCase())
     );
-  };
-  
-  // Function to render each item in the FlatList
-  const renderItem = ({ item }) => (
-    <WordItem item={item} onPress={showWordDetails} />
-  );
 
-  // Function to display word details in a modal
+    if (filteredData.length === 0) {
+      // No matching words found for the search text
+      return [{ error: true }];
+    }
+
+    return filteredData;
+  };
+
+  const renderItem = ({ item }) => {
+    if (item.error) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorHeader}>Oops!</Text>
+          <Text style={styles.errorText}>No word found, search for another word</Text>
+        </View>
+      );
+    }
+
+    return <WordItem item={item} onPress={showWordDetails} />;
+  };
+
   const showWordDetails = (word) => {
     setSelectedWord(word);
   };
 
-  // Function to close the modal
   const closeModal = () => {
     setSelectedWord(null);
   };
 
-  // Function to toggle bookmarks for a word
   const toggleBookmark = (word) => {
     if (bookmarks.includes(word)) {
       const updatedBookmarks = bookmarks.filter((item) => item !== word);
@@ -186,29 +181,29 @@ const App = () => {
     }
   };
 
-  // Function to check if a word is bookmarked
   const isWordBookmarked = (word) => bookmarks.includes(word);
-
-  // Function to render a bookmarked word
-    const renderBookmarkedWord = ({ item }) => {
+  const renderBookmarkedWord = ({ item }) => {
     const foundWord = dictionaryData.find((word) => word.word === item);
-  
+
     if (foundWord) {
       return (
         <TouchableOpacity onPress={() => showWordDetails(foundWord)}>
-          <Text style={styles.bookmarkedWord}>{foundWord.word}</Text>
+          <Text style={styles.bookmarkedWordItem}>{foundWord.word}</Text>
         </TouchableOpacity>
       );
     }
-  
+
     return (
-      <Text style={styles.bookmarkedWord}>
-        Error! Word not found: {item}
-      </Text>
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>Error! Word not found</Text>
+      </View>
     );
   };
-  
-  // JSX code for rendering the main UI of the app
+
+  const closeBookmarkedWordsModal = () => {
+    setBookmarkedWordsVisible(false);
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar animated={true} backgroundColor="#0047ab" barStyle="light" />
@@ -220,13 +215,13 @@ const App = () => {
           value={searchText}
         />
       </View>
-      {searchText.trim() !== "" && (
-        <Animated.FlatList
+      {dictionaryData.length > 0 && (
+        <FlatList
           style={styles.list}
-          data={filterData()}
+          data={searchText.trim() === "" ? dictionaryData : filterData()}
           renderItem={renderItem}
           keyExtractor={(item, index) => index.toString()}
-          ItemSeparatorComponent={() => <View stywle={styles.divider} />}
+          ItemSeparatorComponent={() => <View style={styles.divider} />}
         />
       )}
 
@@ -280,14 +275,7 @@ const App = () => {
         </View>
       </Modal>
 
-      <TouchableOpacity
-        style={styles.bookmarkIconContainer}
-        onPress={() => setBookmarksVisible(!bookmarksVisible)}
-      >
-        <EvilIcons name="star" size={40} color="black" />
-      </TouchableOpacity>
-
-      {bookmarksVisible && (
+      <Modal visible={bookmarkedWordsVisible} animationType="slide">
         <View style={styles.bookmarkedWordsContainer}>
           <Text style={styles.bookmarksTitle}>Bookmarked Words:</Text>
           <FlatList
@@ -296,8 +284,18 @@ const App = () => {
             keyExtractor={(item, index) => index.toString()}
             style={styles.bookmarkedWordItem}
           />
+          <TouchableOpacity style={backgroundColor="#0047ab"} onPress={closeBookmarkedWordsModal}>
+              <Text style={styles.errorText}>Go Back</Text>
+            </TouchableOpacity>
         </View>
-      )}
+      </Modal>
+
+      <TouchableOpacity
+        style={styles.bookmarkIconContainer}
+        onPress={() => setBookmarkedWordsVisible(!bookmarkedWordsVisible)}
+      >
+        <EvilIcons name="star" size={40} color="black" />
+      </TouchableOpacity>
     </View>
   );
 };

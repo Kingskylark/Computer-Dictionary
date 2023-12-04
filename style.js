@@ -11,7 +11,6 @@ export const styles = StyleSheet.create({
   searchContainer: {
     backgroundColor: '#0073cf',
     padding: 10,
-    marginTop: 20,
   },
   
   // Styling for the search input field
@@ -22,6 +21,23 @@ export const styles = StyleSheet.create({
     borderRadius: 5,
   },
   
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorHeader: {
+    color: 'red', 
+    fontSize: 30,
+    fontStyle:"italic",
+    
+  },
+
+  errorText: {
+    color: 'black', 
+    fontSize: 18,
+  },
   // Styling for a list container
   list: {
     padding: 16,
@@ -134,7 +150,7 @@ export const styles = StyleSheet.create({
   
   // Styling for sentence text
   sentence: {
-    fontSize: 16,
+      fontSize: 16,
     marginBottom: 8,
   },
   
@@ -167,7 +183,7 @@ export const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
-    marginLeft: 16,
+    margin: 16,
   },
   
   // Styling for the go back button text

@@ -4,11 +4,11 @@
     "slug": "Computer-Dictionary",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/Cresa.png",
+    "icon": "./assets/cresa2.jpg",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/Cresa.png",
-      "resizeMode": "contain",
+      "image": "./assets/cresa2.jpg",
+      "resizeMode": "300x300",
       "backgroundColor": "#ffffff"
     },
     "assetBundlePatterns": [
@@ -19,8 +19,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/Cresa.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/cresa2.jpg",
+        "backgroundColor": "#0073cf"
       }
     },
     "web": {
